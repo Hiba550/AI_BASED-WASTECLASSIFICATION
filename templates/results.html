@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Typing animation */
+        .typing-animation {
+            display: inline-block;
+            white-space: pre-wrap;
+            animation: typing 1.5s steps(40, end), blink 0.7s step-end infinite;
+            border-right: 2px solid #333;
+        }
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+        @keyframes blink {
+            50% { border-color: transparent; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen p-5">
+    <div class="container max-w-3xl mx-auto">
+        <h1 class="text-4xl font-bold text-center text-green-600 mb-8">WasteWise</h1>
+        
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Analysis Results</h2>
+
+        <!-- Analysis Results Section with Typing Animation -->
+        <div class="w-full">
+            <div class="bg-white rounded-lg shadow-lg p-4">
+                <div id="result-text" class="text-lg leading-relaxed text-gray-800"></div>
+            </div>
+        </div>
+
+        <!-- Back Link -->
+        <div class="text-center mt-8">
+            <a href="/" class="bg-green-500 text-white rounded-lg px-6 py-2 mt-4 hover:bg-green-600 transition-colors duration-300 inline-block">Analyze Another Image</a>
+        </div>
+    </div>
+
+    <script>
+        // Typing Animation Logic for Displaying Text
+        const responseText = `{{ gemini_response }}`; // Placeholder for response text
+        const resultTextDiv = document.getElementById('result-text');
+        
+        // Function to simulate typing
+        function typeText(text, element) {
+            let index = 0;
+            function type() {
+                if (index < text.length) {
+                    element.textContent += text[index];
+                    index++;
+                    setTimeout(type, 30); // Speed of typing
+                } else {
+                    element.classList.remove('typing-animation'); // Remove animation after complete
+                }
+            }
+            type();
+        }
+
+        // Start typing effect
+        typeText(responseText, resultTextDiv);
+    </script>
+</body>
+</html>
