@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WasteWise</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .typing-animation {
+            border-right: 2px solid #2c3e50;
+            animation: blink 0.7s infinite;
+        }
+        @keyframes blink {
+            50% { border-color: transparent; }
+        }
+        .drag-drop-hover {
+            background-color: #e6fffa;
+            border-color: #38b2ac;
+            color: #38b2ac;
+        }
+        .loading-bar {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            color: #38b2ac;
+            display: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-green-50 text-gray-800 p-5">
+    <div class="brand-name typing-animation text-6xl text-gray-800 absolute top-5 left-5">WasteWise</div>
+    <div class="bg-white shadow-lg rounded-lg p-5 w-full max-w-md mt-20 relative">
+        <div class="loading-bar" id="loading-bar">Loading: <span id="loading-progress">0</span>%</div>
+        <form id="upload-form" method="POST" action="/process-image" enctype="multipart/form-data" class="flex flex-col items-center">
+            <div class="border-2 border-dashed border-green-500 rounded-lg w-full h-64 flex items-center justify-center text-lg text-gray-500 cursor-pointer relative overflow-hidden" id="drag-drop-area">
+                Drag & Drop your image here
+                <img id="image-preview" src="" alt="Image Preview" class="hidden max-w-full rounded-lg mt-2">
+            </div>
+            <span class="bg-green-500 text-white rounded px-4 py-2 mt-3 cursor-pointer hover:bg-green-600" id="choose-file-label" onclick="document.getElementById('file-input').click();">Choose File</span>
+            <input type="file" id="file-input" name="image" accept="image/*" onchange="previewImage(event)" required class="hidden">
+            <div class="flex space-x-2 mt-3">
+                <button type="button" class="bg-blue-500 text-white rounded px-4 py-2 hover:bg-blue-600" onclick="openCamera()">Use Camera</button>
+                <button type="button" class="bg-blue-500 text-white rounded px-4 py-2 hover:bg-blue-600" onclick="switchCamera()">Switch Camera</button>
+            </div>
+            <button type="button" class="bg-blue-500 text-white rounded px-4 py-2 mt-3 hover:bg-blue-600" onclick="captureImage()">Capture</button>
+            <button type="submit" class="bg-green-500 text-white rounded px-4 py-2 mt-3 hover:bg-green-600">Analyze</button>
+            <video id="camera-stream" autoplay playsinline class="hidden max-w-full rounded-lg mt-2"></video>
+        </form>
+        <div id="results" class="hidden mt-5 p-3 border border-gray-300 rounded-md bg-gray-100"></div>
+    </div>
+
+    <script>
+        const dragDropArea = document.getElementById('drag-drop-area');
+        const fileInput = document.getElementById('file-input');
+        const imagePreview = document.getElementById('image-preview');
+        const loadingBar = document.getElementById('loading-bar');
+        const loadingProgress = document.getElementById('loading-progress');
+        const cameraStream = document.getElementById('camera-stream');
+        let currentStream = null;
+        let usingFrontCamera = false;
+
+        // Drag and Drop Events
+        dragDropArea.addEventListener('dragover', (event) => {
+            event.preventDefault(); // Prevent default to allow drop
+            dragDropArea.classList.add('drag-drop-hover');
+        });
+
+        dragDropArea.addEventListener('dragleave', () => {
+            dragDropArea.classList.remove('drag-drop-hover');
+        });
+
+        dragDropArea.addEventListener('drop', (event) => {
+            event.preventDefault(); // Prevent default behavior for drop
+            dragDropArea.classList.remove('drag-drop-hover');
+
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files; // Set files to input
+                showLoadingAnimation(); // Start loading animation
+                previewImage({ target: { files } }); // Preview the image
+            }
+        });
+
+        // Show loading animation
+        function showLoadingAnimation() {
+            let progress = 0;
+            loadingBar.style.display = 'block';
+
+            const interval = setInterval(() => {
+                if (progress < 100) {
+                    progress += 1;
+                    loadingProgress.textContent = progress;
+                } else {
+                    clearInterval(interval);
+                    loadingBar.style.display = 'none';
+                }
+            }, 20);
+        }
+
+        // Preview Image Function
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadstart = () => showLoadingAnimation();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                    dragDropArea.innerHTML = '';
+                    dragDropArea.appendChild(imagePreview);
+                    document.getElementById('choose-file-label').style.display = 'none';
+                    loadingBar.style.display = 'none'; // Hide loading after preview is loaded
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Camera and Capture Functions
+        async function openCamera() {
+            try {
+                const constraints = {
+                    video: { facingMode: usingFrontCamera ? "user" : "environment" }
+                };
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                cameraStream.srcObject = currentStream;
+                cameraStream.classList.remove('hidden');
+                imagePreview.classList.add('hidden');
+            } catch (error) {
+                console.error("Camera access error:", error);
+            }
+        }
+
+        async function switchCamera() {
+            usingFrontCamera = !usingFrontCamera;
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            openCamera();
+        }
+
+        async function captureImage() {
+            if (!currentStream) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = cameraStream.videoWidth;
+            canvas.height = cameraStream.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(cameraStream, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                const file = new File([blob], "captured-image.jpg", { type: "image/jpeg" });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+
+                showLoadingAnimation();
+                previewImage({ target: { files: fileInput.files } });
+            });
+        }
+    </script>
+</body>
+</html>
